@@ -1,0 +1,7 @@
+.vscode
+data
+.DS_Store
+.ipynb_checkpoints
+model/checkpoints
+model/logs
+model/doodles.h5
