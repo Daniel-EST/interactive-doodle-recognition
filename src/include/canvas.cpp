@@ -28,32 +28,25 @@ void startCanvas(const fdeep::model& model)
     cv::Mat imgModelView;
     cv::Mat resizedModelView;
     cv::Mat imageModelViewCVRGB;
-    Image imageRayLibModelView;
 	Texture2D textureModelView;
     cv::Mat img;
-
-    bool showModelView = false;
 
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Doodle Canvas");
     SetConfigFlags(FLAG_VSYNC_HINT);
     SetTargetFPS(60);
     
-    RenderTexture2D target = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    RenderTexture2D target = LoadRenderTexture(IMAGE_WIDTH, IMAGE_HEIGHT);
 
-    Rectangle CanvasArea
-    {
-        (float) (GetScreenWidth() / 2) - (IMAGE_WIDTH / 2), 
-        (float) (GetScreenHeight() / 2) - (IMAGE_HEIGHT / 2), 
-        IMAGE_WIDTH, IMAGE_HEIGHT
-    };
-    
     BeginTextureMode(target);
-        DrawRectangleRec(CanvasArea, BLACK);
+        DrawRectangleRec(
+            { 0, 0, IMAGE_WIDTH, IMAGE_HEIGHT }, 
+            BLACK
+        );
     EndTextureMode();
 
+    Rectangle canvasArea = { (GetScreenWidth() - IMAGE_WIDTH) / 2.0f, (GetScreenHeight() - IMAGE_HEIGHT) / 2.0f, IMAGE_WIDTH, IMAGE_HEIGHT };
 
     std::map<size_t, std::string> resultTranslator;
-
     resultTranslator[0] = "Angel";
     resultTranslator[1] = "Bicycle";
     resultTranslator[2] = "Cat";
@@ -78,20 +71,29 @@ void startCanvas(const fdeep::model& model)
     while(!WindowShouldClose())
     {
         Vector2 mousePos = GetMousePosition();
+        Vector2 mousePosRelative = { mousePos.x - canvasArea.x, mousePos.y - canvasArea.y };
 
-        if(CheckCollisionPointRec(GetMousePosition(), CanvasArea))
+        if(CheckCollisionPointRec(mousePos, canvasArea))
         {
             if(IsMouseButtonDown(MOUSE_BUTTON_LEFT))
             {
                 BeginTextureMode(target);
-                    DrawCircle(mousePos.x, mousePos.y, LINE_THICKNESS, WHITE);
+                    DrawCircle(
+                        mousePosRelative.x,
+                        mousePosRelative.y,
+                        LINE_THICKNESS, WHITE
+                    );
                 EndTextureMode();
             }
 
             if(IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
             {
                 BeginTextureMode(target);
-                    DrawCircle(mousePos.x, mousePos.y, LINE_THICKNESS + 4, BLACK);
+                    DrawCircle(
+                        mousePosRelative.x,
+                        mousePosRelative.y,
+                        LINE_THICKNESS + 4, BLACK
+                    );
                 EndTextureMode();
             }
 
@@ -99,14 +101,12 @@ void startCanvas(const fdeep::model& model)
             {
                 image = LoadImageFromTexture(target.texture);
                 ImageFlipVertical(&image);
-                ImageCrop(&image, CanvasArea);
+                ImageCrop(&image, canvasArea);
                 ImageColorGrayscale(&image);
-                // ImageResize(&image, RESIZE_WIDTH, RESIZE_HEIGHT);
 
                 cv::Mat img(image.height, image.width, CV_8UC1, image.data);
                 cv::resize(img, img, cv::Size(RESIZE_WIDTH, RESIZE_HEIGHT), cv::INTER_CUBIC);
         
-                img = cropAlignTopLeft(img);
                 imgModelView = img;
                 
                 const auto input = fdeep::tensor_from_bytes((uint8_t*) img.data,
@@ -116,37 +116,18 @@ void startCanvas(const fdeep::model& model)
                     0.0f, 255.0f
                 );
 
-                // std::cout << "Predict" << std::endl;
-                const size_t result = model.predict_class({input});
-                // std::cout << resultTranslator[result] << std::endl;
+                const size_t result = model.predict_class({ input });
+
                 prediction.clear();
                 prediction.append(resultTranslator[result]);
                 UnloadImage(image);
             }
         }
 
-        if(IsKeyPressed(KEY_V))
-        {
-            std::cout << "Showing Model View: " << prediction << std::endl;
-
-            cv::resize(imgModelView, resizedModelView, cv::Size(IMAGE_WIDTH, IMAGE_HEIGHT), cv::INTER_CUBIC);
-            cv::cvtColor(resizedModelView, imageModelViewCVRGB, cv::COLOR_BGR2RGB);
-
-            imageRayLibModelView.width = imageModelViewCVRGB.cols;
-            imageRayLibModelView.height = imageModelViewCVRGB.rows;
-            imageRayLibModelView.format = 4;
-            imageRayLibModelView.mipmaps = 1;
-            imageRayLibModelView.data = (void*) (imageModelViewCVRGB.data);
-
-            textureModelView = LoadTextureFromImage(imageRayLibModelView);
-
-            showModelView = !showModelView;
-        }
-
         if (IsKeyPressed(KEY_C))
         {
             BeginTextureMode(target);
-                DrawRectangleRec(CanvasArea, BLACK);
+                DrawRectangleRec({ 0, 0, IMAGE_WIDTH, IMAGE_HEIGHT }, BLACK);
             EndTextureMode();
             prediction.clear();
         }
@@ -155,61 +136,38 @@ void startCanvas(const fdeep::model& model)
         {
             image = LoadImageFromTexture(target.texture);
             ImageFlipVertical(&image);
-            ImageCrop(&image, CanvasArea);
+            ImageCrop(&image, canvasArea);
             ExportImage(image, "painting.png");
             UnloadImage(image);
         }
 
         BeginDrawing();
             ClearBackground(SKYBLUE);
-            DrawRectangleRec(CanvasArea, BLACK);
-            DrawTextureRec(target.texture, 
-                (Rectangle) 
-                { 
-                    0, 0, 
-                    (float)target.texture.width, 
-                    (float)-target.texture.height 
-                }, 
-                (Vector2) { 0, 0 },
+    
+            DrawTextureRec(target.texture,
+                { 0, 0, canvasArea.width, -canvasArea.height },
+                { canvasArea.x , canvasArea.y },
                 WHITE
             );
 
-            if(CheckCollisionPointRec(GetMousePosition(), CanvasArea))
+            if(CheckCollisionPointRec(mousePos, canvasArea))
+            {
                 DrawCircle(
-                    GetMouseX(), GetMouseY(), 
+                    mousePos.x, mousePos.y, 
                     LINE_THICKNESS, 
                     ColorAlpha(WHITE, 0.75)
                 );
-            
-            const char* text = TextFormat("%s", prediction.c_str());
-            DrawText(text, (GetScreenWidth() / 2) - (MeasureText(text, 32) / 2), 500, 32, RAYWHITE);
+            }
+        
+            const char* predictionText = TextFormat("%s", prediction.c_str());
+            DrawText(predictionText, (GetScreenWidth() / 2) - (MeasureText(predictionText, 32) / 2), 500, 32, RAYWHITE);
 
-            DrawText("Draw your doodle!", (GetScreenWidth() / 2) - (MeasureText("Draw your doodle!", 50) / 2), 100, 50, RAYWHITE);
+            const char* titleText = "Draw your doodle!";
+            DrawText(titleText, (GetScreenWidth() / 2) - (MeasureText(titleText, 50) / 2), 100, 50, RAYWHITE);
             
-            DrawText("\"V\" - Draw Model View", 10, 620, 20, RAYWHITE);
             DrawText("\"F5\" - Screenshot", 10, 650, 20, RAYWHITE);
             DrawText("\"C\" - Clear canvas", 10, 680, 20, RAYWHITE);
-            
-            if(showModelView)
-            {
-                DrawTexture(
-                    textureModelView, 
-                    (SCREEN_WIDTH / 2) - (IMAGE_WIDTH / 2), (SCREEN_HEIGHT / 2) - (IMAGE_HEIGHT / 2), 
-                    RAYWHITE
-                );
-            }
 
-            DrawRectangleLinesEx(
-                (Rectangle)
-                {
-                    CanvasArea.x - LINE_THICKNESS,
-                    CanvasArea.y - LINE_THICKNESS,
-                    CanvasArea.width + LINE_THICKNESS * 3,
-                    CanvasArea.height + LINE_THICKNESS * 3,
-                }, 
-                LINE_THICKNESS,
-                SKYBLUE
-            );
         EndDrawing();
     }
 
