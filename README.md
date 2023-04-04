@@ -27,6 +27,14 @@ This work is a attempt to train a Deep Neural Network to classify doodles from t
 - Umbrella;
 - Windmill;
 
+## Dependencies:
+- raysan5/raylib;
+- libeigen/eigen;
+- opencv/opencv;
+- Dobiasd/FunctionalPlus
+- Dobiasd/frugally-deep;
+- nlohmann/json;
+
 ## TODO
 - For now, there are only 20 possible predictions;
 - Make a better brush.
