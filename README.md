@@ -3,8 +3,7 @@
 ![](./docs/screenshot.png)
 
 
-This work is a attempt to train a Deep Neural Network to classify doodles from the Google's QuickDraw database.
-This project will be presented as a final work at my Master Degree Deep Learning subject.
+This work is a attempt to train a Deep Neural Network to classify doodles from the Google's QuickDraw database as the user interacts with the application.
 
 ### Available predictions
 - Angel;
